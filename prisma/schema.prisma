@@ -1,0 +1,218 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum TransactionType {
+  INCOME
+  EXPENSE
+  TRANSFER
+}
+
+enum UserRole {
+  OWNER
+  MEMBER
+  VIEWER
+}
+
+enum JobStatus {
+  PENDING
+  PROCESSING
+  DONE
+  FAILED
+}
+
+enum Frequency {
+  DAILY
+  WEEKLY
+  BIWEEKLY
+  MONTHLY
+  QUARTERLY
+  YEARLY
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  name         String
+  passwordHash String?
+  avatar       String?
+  currency     String   @default("IDR")
+  timezone     String   @default("Asia/Jakarta")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  workspaces   WorkspaceMember[]
+  transactions Transaction[]
+  reports      Report[]
+  accounts     Account[]
+  sessions     Session[]
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+model Workspace {
+  id        String   @id @default(cuid())
+  name      String
+  currency  String   @default("IDR")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  members        WorkspaceMember[]
+  categories     Category[]
+  transactions   Transaction[]
+  budgets        Budget[]
+  recurringRules RecurringRule[]
+  reports        Report[]
+}
+
+model WorkspaceMember {
+  workspaceId String
+  userId      String
+  role        UserRole @default(MEMBER)
+  joinedAt    DateTime @default(now())
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([workspaceId, userId])
+}
+
+model Category {
+  id          String          @id @default(cuid())
+  workspaceId String
+  name        String
+  icon        String          @default("circle")
+  color       String          @default("#6366f1")
+  type        TransactionType
+  parentId    String?
+  createdAt   DateTime        @default(now())
+
+  workspace    Workspace      @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  parent       Category?      @relation("subcategory", fields: [parentId], references: [id])
+  children     Category[]     @relation("subcategory")
+  transactions Transaction[]
+  budgets      Budget[]
+  recurringRules RecurringRule[]
+
+  @@unique([workspaceId, name])
+}
+
+model Transaction {
+  id              String          @id @default(cuid())
+  workspaceId     String
+  userId          String
+  categoryId      String?
+  type            TransactionType
+  amount          Decimal         @db.Decimal(15, 2)
+  currency        String          @default("IDR")
+  description     String
+  date            DateTime        @db.Date
+  notes           String?
+  tags            String[]
+  receiptUrl      String?
+  isRecurring     Boolean         @default(false)
+  recurringRuleId String?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  workspace     Workspace      @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user          User           @relation(fields: [userId], references: [id])
+  category      Category?      @relation(fields: [categoryId], references: [id])
+  recurringRule RecurringRule? @relation(fields: [recurringRuleId], references: [id])
+
+  @@index([workspaceId, date(sort: Desc)])
+  @@index([workspaceId, categoryId])
+  @@index([workspaceId, type, date])
+}
+
+model Budget {
+  id          String   @id @default(cuid())
+  workspaceId String
+  categoryId  String
+  month       String   // "2026-03" format
+  limitAmount Decimal  @db.Decimal(15, 2)
+  alertAt     Int      @default(80)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  category  Category  @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, categoryId, month])
+  @@index([workspaceId, month])
+}
+
+model RecurringRule {
+  id          String    @id @default(cuid())
+  workspaceId String
+  categoryId  String?
+  type        TransactionType
+  amount      Decimal   @db.Decimal(15, 2)
+  description String
+  frequency   Frequency
+  startDate   DateTime  @db.Date
+  endDate     DateTime? @db.Date
+  nextRunAt   DateTime
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  workspace    Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  category     Category?     @relation(fields: [categoryId], references: [id])
+  transactions Transaction[]
+
+  @@index([nextRunAt])
+}
+
+model Report {
+  id          String    @id @default(cuid())
+  workspaceId String
+  userId      String
+  type        String    // "PDF" | "CSV"
+  periodStart DateTime  @db.Date
+  periodEnd   DateTime  @db.Date
+  filters     Json      @default("{}")
+  status      JobStatus @default(PENDING)
+  fileUrl     String?
+  createdAt   DateTime  @default(now())
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id])
+}
