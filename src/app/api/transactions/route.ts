@@ -4,6 +4,8 @@ import { prisma } from '@/lib/db'
 import { transactionSchema, transactionFilterSchema } from '@/lib/validations/transaction'
 import { invalidateWorkspaceCache } from '@/lib/redis'
 import { getCurrentWorkspace } from '@/lib/workspace'
+import { notificationsQueue, JOB_NAMES } from '@/lib/queue'
+import { format } from 'date-fns'
 
 export async function GET(req: NextRequest) {
   try {
@@ -83,6 +85,48 @@ export async function POST(req: NextRequest) {
     })
 
     await invalidateWorkspaceCache(ws.id)
+
+    // Budget alert check for EXPENSE transactions
+    if (transaction.type === 'EXPENSE' && transaction.categoryId) {
+      try {
+        const month = format(new Date(transaction.date), 'yyyy-MM')
+        const budget = await prisma.budget.findFirst({
+          where: { workspaceId: ws.id, categoryId: transaction.categoryId, month },
+          include: { category: true },
+        })
+        if (budget) {
+          const [startDate, endDate] = (() => {
+            const [y, m] = month.split('-').map(Number)
+            return [new Date(y, m - 1, 1), new Date(y, m, 0)]
+          })()
+          const agg = await prisma.transaction.aggregate({
+            where: { workspaceId: ws.id, categoryId: transaction.categoryId, type: 'EXPENSE', date: { gte: startDate, lte: endDate } },
+            _sum: { amount: true },
+          })
+          const spent = Number(agg._sum.amount ?? 0)
+          const limit = Number(budget.limitAmount)
+          const pct = limit > 0 ? (spent / limit) * 100 : 0
+          if (pct >= budget.alertAt) {
+            const members = await prisma.workspaceMember.findMany({
+              where: { workspaceId: ws.id },
+              include: { user: { select: { email: true } } },
+            })
+            await notificationsQueue.add(JOB_NAMES.BUDGET_ALERT, {
+              workspaceId: ws.id,
+              categoryId: transaction.categoryId,
+              categoryName: budget.category.name,
+              spent,
+              limit,
+              alertAt: budget.alertAt,
+              currency: ws.currency,
+              userEmails: members.map((m) => m.user.email),
+            })
+          }
+        }
+      } catch (alertErr) {
+        console.error('[budget-alert] Failed to queue alert:', alertErr)
+      }
+    }
 
     return NextResponse.json(transaction, { status: 201 })
   } catch (err) {

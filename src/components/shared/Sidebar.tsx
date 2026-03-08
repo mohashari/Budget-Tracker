@@ -5,7 +5,7 @@ import { cn } from '@/lib/utils'
 import {
   LayoutDashboard, ArrowLeftRight, Target, BarChart3,
   Tags, Settings, Wallet, ChevronLeft, ChevronRight,
-  RefreshCw
+  RefreshCw, FileText, Upload
 } from 'lucide-react'
 import { useState } from 'react'
 
@@ -17,6 +17,11 @@ const navItems = [
   { href: '/recurring', icon: RefreshCw, label: 'Berulang' },
   { href: '/categories', icon: Tags, label: 'Kategori' },
   { href: '/settings', icon: Settings, label: 'Pengaturan' },
+]
+
+const secondaryItems = [
+  { href: '/analytics/reports', icon: FileText, label: 'Laporan' },
+  { href: '/transactions/import', icon: Upload, label: 'Import CSV' },
 ]
 
 export function Sidebar() {
@@ -43,8 +48,28 @@ export function Sidebar() {
           {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
         </button>
       </div>
-      <nav className="flex-1 p-2 space-y-1">
+      <nav className="flex-1 p-2 space-y-1 overflow-y-auto">
         {navItems.map((item) => {
+          const active = pathname === item.href || (item.href !== '/analytics' && pathname.startsWith(item.href + '/') && !pathname.startsWith('/analytics/reports') && !pathname.startsWith('/transactions/import'))
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              className={cn(
+                'flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
+                active
+                  ? 'bg-indigo-50 text-indigo-700 dark:bg-indigo-900/20 dark:text-indigo-400'
+                  : 'text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-700'
+              )}
+            >
+              <item.icon className="h-5 w-5 flex-shrink-0" />
+              {!collapsed && <span>{item.label}</span>}
+            </Link>
+          )
+        })}
+        {!collapsed && <p className="px-3 pt-3 pb-1 text-xs text-gray-400 uppercase tracking-wider font-medium">Tools</p>}
+        {collapsed && <div className="border-t border-gray-200 dark:border-gray-700 my-2" />}
+        {secondaryItems.map((item) => {
           const active = pathname.startsWith(item.href)
           return (
             <Link

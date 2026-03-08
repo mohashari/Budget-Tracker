@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Laporan Keuangan — {{workspace}}</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Segoe UI', Arial, sans-serif; color: #1a1a2e; background: #fff; font-size: 13px; }
+
+    /* Cover page */
+    .cover { display: flex; flex-direction: column; justify-content: center; align-items: center; min-height: 100vh; text-align: center; background: linear-gradient(135deg, #6366f1 0%, #4f46e5 50%, #3730a3 100%); color: white; page-break-after: always; }
+    .cover-logo { font-size: 48px; margin-bottom: 16px; }
+    .cover-title { font-size: 36px; font-weight: 700; margin-bottom: 8px; }
+    .cover-subtitle { font-size: 18px; opacity: 0.85; margin-bottom: 32px; }
+    .cover-meta { background: rgba(255,255,255,0.15); border-radius: 12px; padding: 24px 40px; }
+    .cover-meta p { font-size: 15px; margin: 6px 0; }
+    .cover-meta strong { font-weight: 600; }
+
+    /* Section pages */
+    .section { padding: 40px 48px; page-break-inside: avoid; }
+    .section + .section { border-top: 2px solid #f0f0f0; }
+    .page-break { page-break-before: always; }
+
+    h1 { font-size: 24px; font-weight: 700; color: #4f46e5; margin-bottom: 24px; padding-bottom: 12px; border-bottom: 3px solid #e0e7ff; }
+    h2 { font-size: 18px; font-weight: 600; color: #374151; margin-bottom: 16px; margin-top: 24px; }
+
+    /* Summary cards */
+    .summary-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; margin-bottom: 32px; }
+    .summary-card { padding: 20px 24px; border-radius: 12px; border: 1px solid #e5e7eb; }
+    .summary-card.income { background: #f0fdf4; border-color: #bbf7d0; }
+    .summary-card.expense { background: #fef2f2; border-color: #fecaca; }
+    .summary-card.balance { background: #eff6ff; border-color: #bfdbfe; }
+    .summary-card.savings { background: #faf5ff; border-color: #e9d5ff; }
+    .summary-card .label { font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; color: #6b7280; margin-bottom: 6px; }
+    .summary-card .value { font-size: 26px; font-weight: 700; }
+    .summary-card.income .value { color: #16a34a; }
+    .summary-card.expense .value { color: #dc2626; }
+    .summary-card.balance .value { color: #2563eb; }
+    .summary-card.savings .value { color: #7c3aed; }
+    .summary-card .meta { font-size: 11px; color: #9ca3af; margin-top: 4px; }
+
+    /* Tables */
+    table { width: 100%; border-collapse: collapse; margin-bottom: 24px; }
+    thead th { background: #f8f9ff; color: #4b5563; font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; padding: 10px 12px; text-align: left; border-bottom: 2px solid #e5e7eb; }
+    tbody tr:nth-child(even) { background: #fafafa; }
+    tbody td { padding: 9px 12px; border-bottom: 1px solid #f3f4f6; color: #374151; }
+    tfoot td { padding: 10px 12px; font-weight: 700; background: #f0f0f0; border-top: 2px solid #d1d5db; }
+
+    /* Budget utilization */
+    .progress-bar { height: 8px; background: #e5e7eb; border-radius: 4px; margin-top: 4px; overflow: hidden; }
+    .progress-fill { height: 100%; border-radius: 4px; }
+    .progress-fill.green { background: #22c55e; }
+    .progress-fill.yellow { background: #eab308; }
+    .progress-fill.red { background: #ef4444; }
+
+    /* Category colors */
+    .color-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 6px; vertical-align: middle; }
+
+    /* Amount colors */
+    .amount-income { color: #16a34a; font-weight: 600; }
+    .amount-expense { color: #dc2626; font-weight: 600; }
+    .amount-transfer { color: #2563eb; font-weight: 600; }
+
+    /* Footer */
+    .footer { text-align: center; font-size: 11px; color: #9ca3af; margin-top: 40px; padding-top: 16px; border-top: 1px solid #e5e7eb; }
+
+    /* Type badges */
+    .badge { display: inline-block; padding: 2px 8px; border-radius: 9999px; font-size: 10px; font-weight: 600; text-transform: uppercase; }
+    .badge-income { background: #dcfce7; color: #166534; }
+    .badge-expense { background: #fee2e2; color: #991b1b; }
+    .badge-transfer { background: #dbeafe; color: #1e40af; }
+
+    /* Watermark info */
+    .generated-note { font-size: 11px; color: #9ca3af; text-align: right; margin-bottom: 20px; }
+  </style>
+</head>
+<body>
+
+<!-- ===== COVER PAGE ===== -->
+<div class="cover">
+  <div class="cover-logo">💰</div>
+  <div class="cover-title">Laporan Keuangan</div>
+  <div class="cover-subtitle">{{workspace}}</div>
+  <div class="cover-meta">
+    <p><strong>Periode:</strong> {{periodLabel}}</p>
+    <p><strong>Dibuat:</strong> {{generatedAt}}</p>
+    <p><strong>Mata Uang:</strong> {{currency}}</p>
+  </div>
+</div>
+
+<!-- ===== EXECUTIVE SUMMARY ===== -->
+<div class="section page-break">
+  <h1>Ringkasan Eksekutif</h1>
+  <p class="generated-note">Periode: {{periodStart}} — {{periodEnd}}</p>
+
+  <div class="summary-grid">
+    <div class="summary-card income">
+      <div class="label">Total Pemasukan</div>
+      <div class="value">{{summary.income}}</div>
+      <div class="meta">{{summary.incomeCount}} transaksi</div>
+    </div>
+    <div class="summary-card expense">
+      <div class="label">Total Pengeluaran</div>
+      <div class="value">{{summary.expense}}</div>
+      <div class="meta">{{summary.expenseCount}} transaksi</div>
+    </div>
+    <div class="summary-card balance">
+      <div class="label">Saldo Bersih</div>
+      <div class="value">{{summary.balance}}</div>
+      <div class="meta">Selisih pemasukan dan pengeluaran</div>
+    </div>
+    <div class="summary-card savings">
+      <div class="label">Tingkat Tabungan</div>
+      <div class="value">{{summary.savingsRate}}%</div>
+      <div class="meta">dari total pemasukan</div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== CATEGORY BREAKDOWN ===== -->
+{{#if categories.length}}
+<div class="section page-break">
+  <h1>Pengeluaran per Kategori</h1>
+  <table>
+    <thead>
+      <tr>
+        <th>Kategori</th>
+        <th style="text-align:right">Jumlah</th>
+        <th style="text-align:right">% dari Total</th>
+        <th style="text-align:right">Transaksi</th>
+      </tr>
+    </thead>
+    <tbody>
+      {{#each categories}}
+      <tr>
+        <td><span class="color-dot" style="background:{{color}}"></span>{{name}}</td>
+        <td style="text-align:right" class="amount-expense">{{total}}</td>
+        <td style="text-align:right">{{percentage}}%</td>
+        <td style="text-align:right">{{count}}</td>
+      </tr>
+      {{/each}}
+    </tbody>
+    <tfoot>
+      <tr>
+        <td>Total</td>
+        <td style="text-align:right" class="amount-expense">{{categoryTotal}}</td>
+        <td style="text-align:right">100%</td>
+        <td style="text-align:right">{{categoryTxCount}}</td>
+      </tr>
+    </tfoot>
+  </table>
+</div>
+{{/if}}
+
+<!-- ===== BUDGET VS ACTUAL ===== -->
+{{#if budgets.length}}
+<div class="section page-break">
+  <h1>Budget vs Realisasi</h1>
+  <table>
+    <thead>
+      <tr>
+        <th>Kategori</th>
+        <th style="text-align:right">Budget</th>
+        <th style="text-align:right">Terpakai</th>
+        <th style="text-align:right">Sisa</th>
+        <th style="width:120px">Progres</th>
+      </tr>
+    </thead>
+    <tbody>
+      {{#each budgets}}
+      <tr>
+        <td><span class="color-dot" style="background:{{color}}"></span>{{name}}</td>
+        <td style="text-align:right">{{limit}}</td>
+        <td style="text-align:right" class="amount-expense">{{spent}}</td>
+        <td style="text-align:right" class="{{#if overBudget}}amount-expense{{else}}amount-income{{/if}}">{{remaining}}</td>
+        <td>
+          <div style="font-size:10px;color:#6b7280;margin-bottom:2px">{{pct}}%</div>
+          <div class="progress-bar">
+            <div class="progress-fill {{statusClass}}" style="width:{{barWidth}}%"></div>
+          </div>
+        </td>
+      </tr>
+      {{/each}}
+    </tbody>
+  </table>
+</div>
+{{/if}}
+
+<!-- ===== TOP 10 TRANSACTIONS ===== -->
+{{#if topTransactions.length}}
+<div class="section page-break">
+  <h1>10 Transaksi Terbesar</h1>
+  <table>
+    <thead>
+      <tr>
+        <th>Tanggal</th>
+        <th>Deskripsi</th>
+        <th>Kategori</th>
+        <th>Tipe</th>
+        <th style="text-align:right">Jumlah</th>
+      </tr>
+    </thead>
+    <tbody>
+      {{#each topTransactions}}
+      <tr>
+        <td>{{date}}</td>
+        <td>{{description}}</td>
+        <td>{{category}}</td>
+        <td><span class="badge badge-{{typeLower}}">{{type}}</span></td>
+        <td style="text-align:right" class="amount-{{typeLower}}">{{amount}}</td>
+      </tr>
+      {{/each}}
+    </tbody>
+  </table>
+</div>
+{{/if}}
+
+<!-- ===== FULL TRANSACTION LIST ===== -->
+{{#if transactions.length}}
+<div class="section page-break">
+  <h1>Daftar Transaksi Lengkap</h1>
+  <table>
+    <thead>
+      <tr>
+        <th>Tanggal</th>
+        <th>Deskripsi</th>
+        <th>Kategori</th>
+        <th>Tipe</th>
+        <th style="text-align:right">Jumlah</th>
+      </tr>
+    </thead>
+    <tbody>
+      {{#each transactions}}
+      <tr>
+        <td>{{date}}</td>
+        <td>{{description}}{{#if notes}}<br><span style="font-size:10px;color:#9ca3af">{{notes}}</span>{{/if}}</td>
+        <td>{{category}}</td>
+        <td><span class="badge badge-{{typeLower}}">{{type}}</span></td>
+        <td style="text-align:right" class="amount-{{typeLower}}">{{amount}}</td>
+      </tr>
+      {{/each}}
+    </tbody>
+  </table>
+</div>
+{{/if}}
+
+<div class="section footer">
+  <p>Laporan ini dibuat secara otomatis oleh Budget Tracker • {{generatedAt}}</p>
+</div>
+
+</body>
+</html>

@@ -7,7 +7,6 @@ import {
   DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu'
 import { LogOut, User, Settings, Bell } from 'lucide-react'
-import Link from 'next/link'
 
 interface NavbarProps {
   user?: { name?: string | null; email?: string | null; image?: string | null }
@@ -28,15 +27,17 @@ export function Navbar({ user }: NavbarProps) {
           <Bell className="h-5 w-5" />
         </Button>
         <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className="relative h-9 w-9 rounded-full">
-              <Avatar className="h-9 w-9">
-                <AvatarFallback className="bg-indigo-100 text-indigo-700 font-semibold">
-                  {initials}
-                </AvatarFallback>
-              </Avatar>
-            </Button>
-          </DropdownMenuTrigger>
+          <DropdownMenuTrigger
+            render={
+              <Button variant="ghost" className="relative h-9 w-9 rounded-full">
+                <Avatar className="h-9 w-9">
+                  <AvatarFallback className="bg-indigo-100 text-indigo-700 font-semibold">
+                    {initials}
+                  </AvatarFallback>
+                </Avatar>
+              </Button>
+            }
+          />
           <DropdownMenuContent align="end" className="w-56">
             <DropdownMenuLabel>
               <div className="flex flex-col space-y-1">
@@ -45,11 +46,11 @@ export function Navbar({ user }: NavbarProps) {
               </div>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
-            <DropdownMenuItem asChild>
-              <Link href="/settings"><User className="mr-2 h-4 w-4" />Profile</Link>
+            <DropdownMenuItem onClick={() => window.location.href = '/settings'}>
+              <User className="mr-2 h-4 w-4" />Profile
             </DropdownMenuItem>
-            <DropdownMenuItem asChild>
-              <Link href="/settings"><Settings className="mr-2 h-4 w-4" />Settings</Link>
+            <DropdownMenuItem onClick={() => window.location.href = '/settings'}>
+              <Settings className="mr-2 h-4 w-4" />Settings
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={() => signOut({ callbackUrl: '/login' })} className="text-red-600">
