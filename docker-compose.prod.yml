@@ -1,0 +1,39 @@
+# Production override — use with: docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    env_file: .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3000/api/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  postgres:
+    restart: unless-stopped
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  redis:
+    restart: unless-stopped
+    volumes:
+      - redis_data:/data
+
+  # mailhog: not included in production — use a real SMTP provider (SMTP_HOST env var)
+  # minio: not included in production — use a managed S3-compatible service (S3_ENDPOINT env var)
+
+volumes:
+  postgres_data:
+  redis_data:

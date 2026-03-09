@@ -1,5 +1,5 @@
 'use client'
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import useSWR from 'swr'
 import { useForm } from 'react-hook-form'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -9,8 +9,11 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Separator } from '@/components/ui/separator'
+import { Badge } from '@/components/ui/badge'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog'
 import { toast } from 'sonner'
-import { User, Globe, Bell, Lock } from 'lucide-react'
+import { User, Globe, Bell, Lock, Users, UserPlus, Trash2, AlertTriangle } from 'lucide-react'
+import { signOut } from 'next-auth/react'
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json())
 
@@ -38,8 +41,26 @@ type PasswordFormData = {
   confirmPassword: string
 }
 
+type MemberUser = { id: string; name: string; email: string; avatar?: string }
+type WorkspaceMember = { userId: string; role: string; joinedAt: string; user: MemberUser }
+
+function roleBadgeVariant(role: string): 'default' | 'secondary' | 'outline' {
+  if (role === 'OWNER') return 'default'
+  if (role === 'ADMIN') return 'secondary'
+  return 'outline'
+}
+
 export default function SettingsPage() {
   const { data: user, isLoading, mutate } = useSWR('/api/users/me', fetcher)
+  const { data: members, mutate: mutateMembers } = useSWR<WorkspaceMember[]>('/api/workspaces/members', fetcher)
+
+  const [inviteEmail, setInviteEmail] = useState('')
+  const [inviteRole, setInviteRole] = useState('MEMBER')
+  const [isInviting, setIsInviting] = useState(false)
+
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [deletePassword, setDeletePassword] = useState('')
+  const [isDeletingAccount, setIsDeletingAccount] = useState(false)
 
   const { register, handleSubmit, setValue, watch, reset, formState: { isSubmitting } } = useForm({
     defaultValues: { name: '', currency: 'IDR', timezone: 'Asia/Jakarta' },
@@ -73,6 +94,67 @@ export default function SettingsPage() {
     } else {
       const json = await res.json()
       toast.error(json?.error ?? 'Gagal mengubah password')
+    }
+  }
+
+  const handleRemoveMember = async (memberId: string) => {
+    if (!confirm('Yakin ingin menghapus anggota ini?')) return
+    const res = await fetch(`/api/workspaces/members/${memberId}`, { method: 'DELETE' })
+    if (res.ok) {
+      toast.success('Anggota berhasil dihapus')
+      mutateMembers()
+    } else {
+      const json = await res.json()
+      toast.error(json?.error ?? 'Gagal menghapus anggota')
+    }
+  }
+
+  const handleInvite = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!inviteEmail) return
+    setIsInviting(true)
+    try {
+      const res = await fetch('/api/users/invite', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: inviteEmail, role: inviteRole }),
+      })
+      if (res.ok) {
+        toast.success('Undangan berhasil dikirim')
+        setInviteEmail('')
+        setInviteRole('MEMBER')
+        mutateMembers()
+      } else {
+        const json = await res.json()
+        toast.error(json?.error ?? 'Gagal mengundang anggota')
+      }
+    } finally {
+      setIsInviting(false)
+    }
+  }
+
+  const handleDeleteAccount = async () => {
+    if (!deletePassword) {
+      toast.error('Masukkan password terlebih dahulu')
+      return
+    }
+    setIsDeletingAccount(true)
+    try {
+      const res = await fetch('/api/users/me/delete', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: deletePassword }),
+      })
+      if (res.ok) {
+        toast.success('Akun berhasil dihapus')
+        setDeleteDialogOpen(false)
+        await signOut({ callbackUrl: '/' })
+      } else {
+        const json = await res.json()
+        toast.error(json?.error ?? 'Gagal menghapus akun')
+      }
+    } finally {
+      setIsDeletingAccount(false)
     }
   }
 
@@ -250,6 +332,74 @@ export default function SettingsPage() {
         </CardContent>
       </Card>
 
+      {/* Workspace Members */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Users className="h-4 w-4" />Anggota Workspace
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {!members ? (
+            <Skeleton className="h-24 w-full" />
+          ) : (
+            <div className="space-y-2">
+              {members.map((m) => (
+                <div key={m.userId} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                  <div>
+                    <p className="font-medium text-sm">{m.user.name}</p>
+                    <p className="text-xs text-muted-foreground">{m.user.email}</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Badge variant={roleBadgeVariant(m.role)}>{m.role}</Badge>
+                    {user?.workspaces?.some((ws: any) => ws.role === 'OWNER') && m.userId !== user?.id && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleRemoveMember(m.userId)}
+                        className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                        <span className="sr-only">Hapus</span>
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <Separator />
+
+          <div>
+            <p className="text-sm font-medium mb-3 flex items-center gap-2">
+              <UserPlus className="h-4 w-4" />Undang Anggota
+            </p>
+            <form onSubmit={handleInvite} className="flex gap-2">
+              <Input
+                type="email"
+                placeholder="Email anggota..."
+                value={inviteEmail}
+                onChange={(e) => setInviteEmail(e.target.value)}
+                className="flex-1"
+              />
+              <Select value={inviteRole} onValueChange={(v) => v && setInviteRole(v)}>
+                <SelectTrigger className="w-32">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="MEMBER">Member</SelectItem>
+                  <SelectItem value="VIEWER">Viewer</SelectItem>
+                </SelectContent>
+              </Select>
+              <Button type="submit" disabled={isInviting}>
+                {isInviting ? 'Mengundang...' : 'Undang'}
+              </Button>
+            </form>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Account info */}
       <Card>
         <CardHeader>
@@ -266,6 +416,86 @@ export default function SettingsPage() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Auto-categorization — Coming Soon */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Kategorisasi Otomatis</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-sm text-muted-foreground italic">Em desenvolvimento — fitur ini segera hadir.</p>
+        </CardContent>
+      </Card>
+
+      {/* Danger Zone */}
+      <Card className="border-red-300 dark:border-red-800">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base text-red-600 dark:text-red-400">
+            <AlertTriangle className="h-4 w-4" />Zona Berbahaya
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium">Hapus Akun</p>
+              <p className="text-xs text-muted-foreground">
+                Tindakan ini tidak dapat dibatalkan. Semua data Anda akan dihapus permanen.
+              </p>
+            </div>
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={() => setDeleteDialogOpen(true)}
+            >
+              Hapus Akun
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Delete Account Dialog */}
+      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Hapus Akun</DialogTitle>
+            <DialogDescription>
+              Tindakan ini akan menghapus akun Anda secara permanen beserta semua data terkait.
+              Masukkan password Anda untuk mengonfirmasi.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <div className="space-y-2">
+              <Label htmlFor="deletePassword">Password</Label>
+              <Input
+                id="deletePassword"
+                type="password"
+                placeholder="Masukkan password Anda..."
+                value={deletePassword}
+                onChange={(e) => setDeletePassword(e.target.value)}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setDeleteDialogOpen(false)
+                setDeletePassword('')
+              }}
+              disabled={isDeletingAccount}
+            >
+              Batal
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleDeleteAccount}
+              disabled={isDeletingAccount || !deletePassword}
+            >
+              {isDeletingAccount ? 'Menghapus...' : 'Hapus Akun Saya'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

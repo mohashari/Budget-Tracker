@@ -8,6 +8,10 @@ import {
   RefreshCw, FileText, Upload
 } from 'lucide-react'
 import { useState } from 'react'
+import useSWR from 'swr'
+import { Badge } from '@/components/ui/badge'
+
+const fetcher = (url: string) => fetch(url).then((r) => r.json())
 
 const navItems = [
   { href: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
@@ -27,6 +31,9 @@ const secondaryItems = [
 export function Sidebar() {
   const pathname = usePathname()
   const [collapsed, setCollapsed] = useState(false)
+  const { data: me } = useSWR('/api/users/me', fetcher)
+
+  const currentRole: string | undefined = me?.workspaces?.[0]?.role
 
   return (
     <aside className={cn(
@@ -88,6 +95,24 @@ export function Sidebar() {
           )
         })}
       </nav>
+
+      {currentRole && (
+        <div className={cn(
+          'p-3 border-t border-gray-200 dark:border-gray-700',
+          collapsed ? 'flex justify-center' : 'flex items-center gap-2'
+        )}>
+          {collapsed ? (
+            <span className="text-xs font-bold text-indigo-600 dark:text-indigo-400 uppercase">
+              {currentRole[0]}
+            </span>
+          ) : (
+            <>
+              <span className="text-xs text-muted-foreground flex-1 truncate">{me?.name}</span>
+              <Badge variant="outline" className="text-xs shrink-0">{currentRole}</Badge>
+            </>
+          )}
+        </div>
+      )}
     </aside>
   )
 }

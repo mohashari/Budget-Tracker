@@ -10,7 +10,9 @@
     "worker:reports": "tsx src/workers/report.worker.ts",
     "worker:notifications": "tsx src/workers/notification.worker.ts",
     "worker:recurring": "tsx src/workers/recurring.worker.ts",
-    "workers": "concurrently \"npm run worker:reports\" \"npm run worker:notifications\" \"npm run worker:recurring\""
+    "workers": "concurrently \"npm run worker:reports\" \"npm run worker:notifications\" \"npm run worker:recurring\"",
+    "test": "vitest",
+    "test:run": "vitest run"
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.11.1",
@@ -53,18 +55,23 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
+    "@testing-library/react": "^16.3.2",
+    "@testing-library/user-event": "^14.6.1",
     "@types/bcryptjs": "^2.4.6",
     "@types/node": "^20",
     "@types/nodemailer": "^7.0.11",
     "@types/papaparse": "^5.5.2",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@vitejs/plugin-react": "^5.1.4",
     "concurrently": "^9.2.1",
     "eslint": "^9",
     "eslint-config-next": "16.1.6",
+    "jsdom": "^28.1.0",
     "prisma": "^7.4.2",
     "tailwindcss": "^4",
     "tsx": "^4.21.0",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^4.0.18"
   }
 }
