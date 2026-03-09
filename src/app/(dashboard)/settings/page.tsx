@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Skeleton } from '@/components/ui/skeleton'
 import { Separator } from '@/components/ui/separator'
 import { toast } from 'sonner'
-import { User, Globe, Bell } from 'lucide-react'
+import { User, Globe, Bell, Lock } from 'lucide-react'
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json())
 
@@ -32,6 +32,12 @@ const TIMEZONES = [
   'UTC',
 ]
 
+type PasswordFormData = {
+  currentPassword: string
+  newPassword: string
+  confirmPassword: string
+}
+
 export default function SettingsPage() {
   const { data: user, isLoading, mutate } = useSWR('/api/users/me', fetcher)
 
@@ -39,11 +45,36 @@ export default function SettingsPage() {
     defaultValues: { name: '', currency: 'IDR', timezone: 'Asia/Jakarta' },
   })
 
+  const {
+    register: registerPassword,
+    handleSubmit: handleSubmitPassword,
+    watch: watchPassword,
+    reset: resetPassword,
+    formState: { isSubmitting: isSubmittingPassword, errors: passwordErrors },
+  } = useForm<PasswordFormData>({
+    defaultValues: { currentPassword: '', newPassword: '', confirmPassword: '' },
+  })
+
   useEffect(() => {
     if (user) {
       reset({ name: user.name, currency: user.currency, timezone: user.timezone })
     }
   }, [user, reset])
+
+  const onPasswordSubmit = async (data: PasswordFormData) => {
+    const res = await fetch('/api/users/me/password', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ currentPassword: data.currentPassword, newPassword: data.newPassword }),
+    })
+    if (res.ok) {
+      toast.success('Password berhasil diubah')
+      resetPassword()
+    } else {
+      const json = await res.json()
+      toast.error(json?.error ?? 'Gagal mengubah password')
+    }
+  }
 
   const onSubmit = async (data: any) => {
     const res = await fetch('/api/users/me', {
@@ -133,6 +164,68 @@ export default function SettingsPage() {
 
             <Button type="submit" disabled={isSubmitting}>
               {isSubmitting ? 'Menyimpan...' : 'Simpan Perubahan'}
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
+
+      {/* Change Password */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Lock className="h-4 w-4" />Ganti Password
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleSubmitPassword(onPasswordSubmit)} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="currentPassword">Password Saat Ini</Label>
+              <Input
+                id="currentPassword"
+                type="password"
+                placeholder="Password saat ini..."
+                {...registerPassword('currentPassword', { required: 'Password saat ini wajib diisi' })}
+              />
+              {passwordErrors.currentPassword && (
+                <p className="text-xs text-red-500">{passwordErrors.currentPassword.message}</p>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="newPassword">Password Baru</Label>
+              <Input
+                id="newPassword"
+                type="password"
+                placeholder="Password baru (min. 8 karakter)..."
+                {...registerPassword('newPassword', {
+                  required: 'Password baru wajib diisi',
+                  minLength: { value: 8, message: 'Password minimal 8 karakter' },
+                })}
+              />
+              {passwordErrors.newPassword && (
+                <p className="text-xs text-red-500">{passwordErrors.newPassword.message}</p>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="confirmPassword">Konfirmasi Password Baru</Label>
+              <Input
+                id="confirmPassword"
+                type="password"
+                placeholder="Ulangi password baru..."
+                {...registerPassword('confirmPassword', {
+                  required: 'Konfirmasi password wajib diisi',
+                  validate: (value) =>
+                    value === watchPassword('newPassword') || 'Password tidak cocok',
+                })}
+              />
+              {passwordErrors.confirmPassword && (
+                <p className="text-xs text-red-500">{passwordErrors.confirmPassword.message}</p>
+              )}
+            </div>
+
+            <Button type="submit" disabled={isSubmittingPassword}>
+              {isSubmittingPassword ? 'Menyimpan...' : 'Ubah Password'}
             </Button>
           </form>
         </CardContent>

@@ -9,6 +9,7 @@ const inter = Inter({ subsets: ['latin'] })
 export const metadata: Metadata = {
   title: 'Budget Tracker',
   description: 'Track your income and expenses',
+  manifest: '/manifest.webmanifest',
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
